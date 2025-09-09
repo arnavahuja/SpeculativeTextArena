@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 from textarena.core import Agent
 import textarena as ta 
+import constants as Constants
 
 __all__ = ["HumanAgent", "OpenRouterAgent", "GeminiAgent", "OpenAIAgent", "HFLocalAgent", "CerebrasAgent", "AWSBedrockAgent", "AnthropicAgent", "GroqAgent", "OllamaAgent", "LlamaCppAgent"]
 STANDARD_GAME_PROMPT = "You are a competitive game player. Make sure you read the game instructions carefully, and always follow the required format."
@@ -125,8 +126,8 @@ class GeminiAgent(Agent):
         except ImportError: raise ImportError("Google Generative AI package is required for GeminiAgent. Install it with: pip install google-generativeai")
         
         # Set the Gemini API key from an environment variable
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key: raise ValueError("Gemini API key not found. Please set the GEMINI_API_KEY environment variable.")
+        api_key = Constants.gemini_api_key 
+        if not api_key: raise ValueError("Gemini API key not found. Please set the GEMINI_API_KEY in the constants file.")
         
         # Configure the Gemini client
         genai.configure(api_key=api_key)
@@ -214,8 +215,8 @@ class OpenAIAgent(Agent):
         except ImportError: raise ImportError("OpenAI package is required for OpenAIAgent. Install it with: pip install openai")
 
         if api_key is None:
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key: raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
+            api_key = Constants.openai_api_key
+            if not api_key: raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY in the constants file.")
         self.client = OpenAI(api_key=api_key, base_url=base_url)
     
     def _make_request(self, observation: str) -> str:
