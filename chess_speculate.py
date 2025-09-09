@@ -123,6 +123,7 @@ class ChessRun:
     def get_runid(self):
         return str(uuid.uuid4())    
 
+    def clean_actions(self, action):
         # UCI moves are typically 4 or 5 characters (e.g., a2a4, e7e8q)
         # This regex matches [a-h][1-8][a-h][1-8] with optional promotion [a-h][1-8][a-h][1-8][qrbn]
         if action is None:
