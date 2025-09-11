@@ -2,10 +2,11 @@
 
 from textarena.envs.registration import register, register_with_versions
 from textarena.envs.utils.jury import OpenRouterJury
-from textarena.wrappers import LLMObservationWrapper, ActionFormattingWrapper, GameMessagesAndCurrentBoardObservationWrapper, GameMessagesObservationWrapper, GameBoardObservationWrapper, ClipCharactersActionWrapper, SettlersOfCatanObservationWrapper
+from textarena.wrappers import LLMObservationWrapper, ActionFormattingWrapper,  ActionLastLineFormattingWrapper, GameMessagesAndCurrentBoardObservationWrapper, GameMessagesObservationWrapper, GameBoardObservationWrapper, ClipCharactersActionWrapper, SettlersOfCatanObservationWrapper
 
 # standard wrapper combinations
 DEFAULT_WRAPPERS = [LLMObservationWrapper, ActionFormattingWrapper]
+DEFAULT_WRAPPERS_LASTLINE = [LLMObservationWrapper, ActionLastLineFormattingWrapper]
 BOARDGAME_WRAPPERS = [GameMessagesAndCurrentBoardObservationWrapper, ActionFormattingWrapper]
 CONVERSATIONAL_WRAPPERS = [LLMObservationWrapper, ClipCharactersActionWrapper]
 
@@ -176,9 +177,9 @@ register_with_versions(id="Checkers-v0",      entry_point="textarena.envs.Checke
 register_with_versions(id="Checkers-v0-long", entry_point="textarena.envs.Checkers.env:CheckersEnv", wrappers={"default": DEFAULT_WRAPPERS, "-train": BOARDGAME_WRAPPERS}, max_turns=300)
 
 # Chess [2 Player]
-register_with_versions(id="Chess-v0",         entry_point="textarena.envs.Chess.env:ChessEnv", wrappers={"default": DEFAULT_WRAPPERS, "-train": BOARDGAME_WRAPPERS}, is_open=True,  max_turns=100, show_valid=True  )
-register_with_versions(id="Chess-v0-long",    entry_point="textarena.envs.Chess.env:ChessEnv", wrappers={"default": DEFAULT_WRAPPERS, "-train": BOARDGAME_WRAPPERS}, is_open=True,  max_turns=250, show_valid=True  )
-register_with_versions(id="Chess-v0-blind",   entry_point="textarena.envs.Chess.env:ChessEnv", wrappers={"default": DEFAULT_WRAPPERS, "-train": BOARDGAME_WRAPPERS}, is_open=False, max_turns=100, show_valid=False )
+register_with_versions(id="Chess-v0",         entry_point="textarena.envs.Chess.env:ChessEnv", wrappers={"default": DEFAULT_WRAPPERS_LASTLINE, "-train": BOARDGAME_WRAPPERS}, is_open=True,  max_turns=100, show_valid=True  )
+register_with_versions(id="Chess-v0-long",    entry_point="textarena.envs.Chess.env:ChessEnv", wrappers={"default": DEFAULT_WRAPPERS_LASTLINE, "-train": BOARDGAME_WRAPPERS}, is_open=True,  max_turns=250, show_valid=True  )
+register_with_versions(id="Chess-v0-blind",   entry_point="textarena.envs.Chess.env:ChessEnv", wrappers={"default": DEFAULT_WRAPPERS_LASTLINE, "-train": BOARDGAME_WRAPPERS}, is_open=False, max_turns=100, show_valid=False )
 
 # Chopsticks [2 Player]
 register_with_versions(id="Chopsticks-v0",        entry_point="textarena.envs.Chopsticks.env:ChopsticksEnv", wrappers={"default": DEFAULT_WRAPPERS, "-train": BOARDGAME_WRAPPERS}, max_turns=40)

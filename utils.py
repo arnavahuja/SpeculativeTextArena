@@ -3,13 +3,13 @@ import json
 import shutil
 import constants as Constants
 import re
-
+import chess
 class Utils:
 
     @staticmethod
     def read_json(path):
         f = open(path, "r")
-        output = json.load(f)
+        output = json.load(f)   
         f.close()
         return output
     
@@ -150,3 +150,11 @@ class Utils:
     @staticmethod
     def dict_to_str(d):
         return ' | '.join([f"{k}: {v}" for k, v in d.items()])
+
+    @staticmethod
+    def board_with_coords(board: chess.Board) -> str:
+        inner_width = len(str(board).splitlines()[0])
+        top = bottom = f"   +{'-' * (inner_width + 2)}+"
+        body = [f" {rank} | {row} |" for rank, row in zip(range(8, 0, -1), str(board).splitlines())]
+        files = "   " + " ".join("a b c d e f g h".split()).center(inner_width + 2)
+        return "\n".join([top, *body, bottom, files])
