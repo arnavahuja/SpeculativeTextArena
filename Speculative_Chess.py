@@ -520,6 +520,9 @@ class SpeculativeChessRunner:
                 input_speculation_tokens = []
                 output_speculation_tokens = []
                 total_speculation_tokens = []
+                input_tokens1 = []
+                output_tokens1 = []
+                total_tokens1 = []
             else:
                 # Run parallel execution
                 with ThreadPoolExecutor() as executor:
