@@ -3,10 +3,16 @@ client_error_sleep_time = 60
 server_error_sleep_time = 60
 gemini_api_key = ""
 openai_api_key = ""
+openrouter_api_key = ""
 gemini_model_name = "gemini-2.5-flash"
 gemini_guess_model_name = "gemini-2.0-flash"
-openai_model_name = "gpt-4.1-turbo"
-openai_guess_model_name = "gpt-4.1-mini"
+openai_model_name = "gpt-5-2025-08-07"
+openai_guess_model_name = "gpt-5-2025-08-07"
+openrouter_model_name = "openai/gpt-5"
+openrouter_guess_model_name = "openai/gpt-5"
+
+
+# FROM OLD CODE
 chess_guess_prompt = "Based on these observations and moves given, guess the next move in the format mentioned. Action must always be present in the output and in a legal UCI format chess move like [e2e4]. Do not under any circumstance give a response without an action in legal uci format"
 react_instruction = """
 Solve a chess playing task with interleaving Thought and Action steps.

@@ -4,12 +4,11 @@ import os, time
 from typing import Optional, Tuple
 
 from textarena.core import Agent
-import textarena as ta 
-import constants as Constants
-
-__all__ = ["HumanAgent", "OpenRouterAgent", "GeminiAgent", "OpenAIAgent", "HFLocalAgent", "CerebrasAgent", "AWSBedrockAgent", "AnthropicAgent", "GroqAgent", "OllamaAgent", "LlamaCppAgent"]
+import textarena as ta
+import requests
+import json
+__all__ = ["HumanAgent", "OpenRouterAgent", "GeminiAgent", "OpenAIAgent", "HFLocalAgent", "CerebrasAgent", "AWSBedrockAgent", "AnthropicAgent", "GroqAgent", "OllamaAgent", "LlamaCppAgent", "OpenAIReasoningAgent", "OpenRouterAgentReasoning"]
 STANDARD_GAME_PROMPT = "You are a competitive game player. Make sure you read the game instructions carefully, and always follow the required format."
-    
 
 class HumanAgent(Agent):
     """ Human agent class that allows the user to input actions manually """
@@ -32,7 +31,7 @@ class HumanAgent(Agent):
 
 class OpenRouterAgent(Agent):
     """ Agent class using the OpenRouter API to generate responses. """
-    def __init__(self, model_name: str, system_prompt: Optional[str] = STANDARD_GAME_PROMPT, verbose: bool = False, **kwargs):
+    def __init__(self, model_name: str, system_prompt: Optional[str] = STANDARD_GAME_PROMPT, verbose: bool = False, api_key: str|None=None, base_url: str|None=None, **kwargs):
         """
         Args:
             model_name (str): The name of the model.
@@ -52,18 +51,23 @@ class OpenRouterAgent(Agent):
         except ImportError:
             raise ImportError("OpenAI package is required for OpenRouterAgent. Install it with: pip install openai")
         
-        api_key = os.getenv("OPENROUTER_API_KEY") # Set the open router api key from an environment variable
+        api_key = api_key
         if not api_key:
             raise ValueError("OpenRouter API key not found. Please set the OPENROUTER_API_KEY environment variable.")
-        self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+        self.client = OpenAI(base_url=base_url, api_key=api_key)
 
-    def _make_request(self, observation: str) -> str:
+    def _make_request(self, observation: str) -> Tuple[str, int, int, int]:
         """ Make a single API request to OpenRouter and return the generated message. """
         messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": observation}]
         response = self.client.chat.completions.create(model=self.model_name, messages=messages, n=1, stop=None, **self.kwargs)
-        return response.choices[0].message.content.strip()
+        usage = response.usage
+        if usage:
+            input_tokens = usage.prompt_tokens
+            output_tokens = usage.completion_tokens
+            total_tokens = usage.total_tokens
+        return response.choices[0].message.content.strip(), input_tokens, output_tokens, total_tokens
 
-    def _retry_request(self, observation: str, retries: int = 3, delay: int = 5) -> str:
+    def _retry_request(self, observation: str, retries: int = 3, delay: int = 5) -> Tuple[str, int, int, int]:
         """
         Attempt to make an API request with retries.
 
@@ -78,10 +82,10 @@ class OpenRouterAgent(Agent):
         last_exception = None
         for attempt in range(1, retries + 1):
             try:
-                response = self._make_request(observation)
+                response, input_tokens, output_tokens, total_tokens = self._make_request(observation)
                 if self.verbose:
                     print(f"\nObservation: {observation}\nResponse: {response}")
-                return response
+                return response, input_tokens, output_tokens, total_tokens
 
             except Exception as e:
                 last_exception = e
@@ -90,7 +94,7 @@ class OpenRouterAgent(Agent):
                     time.sleep(delay)
         raise last_exception
 
-    def __call__(self, observation: str) -> str:
+    def __call__(self, observation: str) -> Tuple[str, int, int, int]:
         """
         Process the observation using the OpenRouter API and return the action.
 
@@ -126,7 +130,7 @@ class GeminiAgent(Agent):
         except ImportError: raise ImportError("Google Generative AI package is required for GeminiAgent. Install it with: pip install google-generativeai")
         
         # Set the Gemini API key from an environment variable
-        api_key = Constants.gemini_api_key 
+        api_key = api_key
         if not api_key: raise ValueError("Gemini API key not found. Please set the GEMINI_API_KEY in the constants file.")
         
         # Configure the Gemini client
@@ -138,7 +142,7 @@ class GeminiAgent(Agent):
         self.generation_config = generation_config
         self.model = genai.GenerativeModel(model_name=self.model_name, generation_config=self.generation_config) # Create the Gemini model
     
-    def _make_request(self, observation: str) -> str:
+    def _make_request(self, observation: str) -> Tuple[str, int, int, int]:
         """
         Make a single API request to Gemini and return the generated message.
         
@@ -152,7 +156,7 @@ class GeminiAgent(Agent):
         if self.verbose: print(f"\nObservation: {observation}\nResponse: {response.text}")
         return response.text.strip()
     
-    def _retry_request(self, observation: str, retries: int = 3, delay: int = 5) -> str:
+    def _retry_request(self, observation: str, retries: int = 3, delay: int = 5) -> Tuple[str, int, int, int]:
         """
         Attempt to make an API request with retries.
         
@@ -175,7 +179,7 @@ class GeminiAgent(Agent):
                     time.sleep(delay)
         raise last_exception
     
-    def __call__(self, observation: str) -> str:
+    def __call__(self, observation: str) -> Tuple[str, int, int, int]:
         """
         Process the observation using the Gemini API and return the generated response.
         
@@ -219,7 +223,7 @@ class OpenAIAgent(Agent):
             if not api_key: raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY in the constants file.")
         self.client = OpenAI(api_key=api_key, base_url=base_url)
     
-    def _make_request(self, observation: str) -> str:
+    def _make_request(self, observation: str) -> Tuple[str, int, int, int]:
         """
         Make a single API request to OpenAI and return the generated message.
         
@@ -233,7 +237,12 @@ class OpenAIAgent(Agent):
         
         # Make the API call using the provided model and messages.
         completion = self.client.chat.completions.create(model=self.model_name, messages=messages, n=1, stop=None, **self.kwargs)
-        return completion.choices[0].message.content.strip()
+        usage = completion.usage
+        if usage:
+            input_tokens = usage.prompt_tokens
+            output_tokens = usage.completion_tokens
+            total_tokens = usage.total_tokens
+        return completion.choices[0].message.content.strip(), input_tokens, output_tokens, total_tokens
     
     def _retry_request(self, observation: str, retries: int=3, delay: int=5) -> str:
         """
@@ -250,10 +259,10 @@ class OpenAIAgent(Agent):
         last_exception = None
         for attempt in range(1, retries + 1):
             try:
-                response = self._make_request(observation)
+                response, input_tokens, output_tokens, total_tokens = self._make_request(observation)
                 if self.verbose:
                     print(f"\nObservation: {observation}\nResponse: {response}")
-                return response
+                return response, input_tokens, output_tokens, total_tokens
             except Exception as e:
                 last_exception = e
                 print(f"Attempt {attempt} failed with error: {e}")
@@ -261,7 +270,7 @@ class OpenAIAgent(Agent):
                     time.sleep(delay)
         raise last_exception
     
-    def __call__(self, observation: str) -> str:
+    def __call__(self, observation: str) -> Tuple[str, int, int, int]:
         """
         Process the observation using the OpenAI API and return the generated response.
         
@@ -591,3 +600,236 @@ class LlamaCppAgent(Agent):
         text = out["choices"][0]["message"]["content"].strip()
         if self.verbose: print(f"\nObservation: {observation}\nResponse: {text}")
         return text
+
+
+
+class OpenAIReasoningAgent(Agent):
+    """Agent class using the OpenAI API to generate responses."""
+
+    def __init__(self, model_name: str, system_prompt: Optional[str]=STANDARD_GAME_PROMPT, verbose: bool=False, api_key: str|None=None, base_url: str|None=None,**kwargs):
+        """
+        Initialize the OpenAI Reasoning agent.
+        
+        Args:
+            model_name (str): The name of the model.
+            system_prompt (Optional[str]): The system prompt to use (default: STANDARD_GAME_PROMPT).
+            verbose (bool): If True, additional debug info will be printed.
+            api_key (str | None): The API key for the OpenAI API.
+            base_url (str | None): The base URL for the OpenAI API.
+            **kwargs: Additional keyword arguments to pass to the OpenAI API call.
+        """
+        super().__init__()
+        self.model_name = model_name
+        self.system_prompt = system_prompt
+        self.verbose = verbose
+        self.kwargs = kwargs
+
+        try: from openai import OpenAI
+        except ImportError: raise ImportError("OpenAI package is required for OpenAIReasoningAgent. Install it with: pip install openai")
+
+        if api_key is None:
+            api_key = Constants.openai_api_key
+            if not api_key: raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY in the constants file.")
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
+    
+    def _make_request(self, observation: str) -> str:
+        """
+        Make a single API request to OpenAI and return the generated message.
+        
+        Args:
+            observation (str): The input string to process.
+        
+        Returns:
+            str: The generated response text.
+        """
+        messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": observation}]
+        
+        # Make the API call using the provided model and messages.
+        response = self.client.responses.create(
+            model=self.model_name, 
+            input=messages, 
+            reasoning = {
+                "effort": "high", 
+                "summary":"auto"
+                }, 
+            **self.kwargs)
+        if response.output[0]["type"] == "reasoning":
+            reasoning = response.output[0]["summary"]
+        else:
+            reasoning = None
+        action = response.output[1]["content"][0]["text"]
+        return reasoning, action
+    
+    def _retry_request(self, observation: str, retries: int=3, delay: int=5) -> str:
+        """
+        Attempt to make an API request with retries.
+        
+        Args:
+            observation (str): The input to process.
+            retries (int): The number of attempts to try.
+            delay (int): Seconds to wait between attempts.
+        
+        Raises:
+            Exception: The last exception caught if all retries fail.
+        """
+        last_exception = None
+        for attempt in range(1, retries + 1):
+            try:
+                reasoning, action = self._make_request(observation)
+                if self.verbose:
+                    print(f"\nObservation: {observation}\nResponse: {reasoning}\nAction: {action}")
+                return reasoning, action
+            except Exception as e:
+                last_exception = e
+                print(f"Attempt {attempt} failed with error: {e}")
+                if attempt < retries:
+                    time.sleep(delay)
+        raise last_exception
+    
+    def __call__(self, observation: str) -> str:
+        """
+        Process the observation using the OpenAI API and return the generated response.
+        
+        Args:
+            observation (str): The input string to process.
+        
+        Returns:
+            str: The generated response.
+        """
+        if not isinstance(observation, str):
+            raise ValueError(f"Observation must be a string. Received type: {type(observation)}")
+        return self._retry_request(observation)
+
+
+class OpenRouterAgentReasoning(Agent):
+    """ Agent class using the OpenRouter API to generate responses. """
+    def __init__(self, model_name: str, system_prompt: Optional[str] = STANDARD_GAME_PROMPT, verbose: bool = False, **kwargs):
+        """
+        Args:
+            model_name (str): The name of the model.
+            system_prompt (Optional[str]): The system prompt to use (default: STANDARD_GAME_PROMPT)
+            verbose (bool): If True, additional debug info will be printed.
+            **kwargs: Additional keyword arguments to pass to the OpenAI API call.
+        """
+        super().__init__()
+        self.model_name = model_name 
+        self.verbose = verbose 
+        self.system_prompt = system_prompt
+        self.kwargs = kwargs
+
+        try:
+            from openai import OpenAI
+            from openai._exceptions import OpenAIError
+        except ImportError:
+            raise ImportError("OpenAI package is required for OpenRouterAgent. Install it with: pip install openai")
+        
+        api_key = Constants.openrouter_api_key # Set the open router api key from an environment variable
+        if not api_key:
+            raise ValueError("OpenRouter API key not found. Please set the OPENROUTER_API_KEY environment variable.")
+        self.client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+
+    def _make_request(self, observation: str) -> Tuple[str, str]:
+        """ Make a single API request to OpenRouter and return the generated message. """
+        messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": observation}]
+        if not self.verbose:
+            url = "https://openrouter.ai/api/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {Constants.openrouter_api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": self.model_name,
+                "messages": messages,
+                "reasoning": {"effort": "high"},
+                **self.kwargs
+            }
+            response = requests.post(url, headers=headers, data=json.dumps(payload))
+            reasoning = response.json()["choices"][0]["message"]["reasoning"]
+            action = response.json()["choices"][0]["message"]["content"]
+            print(f"REASONING: {reasoning}\nACTION: {action}")
+            return action, reasoning
+        else:
+            chunks = self.client.chat.completions.create(
+                model=self.model_name, 
+                messages=messages, 
+                stream=True, 
+                reasoning={"effort": "high"}, 
+                **self.kwargs)
+            content, reasoning="",""
+            print("REASONING:")
+            cont_started=False
+            for chunk in chunks:
+                if hasattr(chunk.choices[0].delta, 'reasoning'):
+                    print(chunk.choices[0].delta.reasoning,end="",flush=True)
+                    reasoning += chunk.choices[0].delta.reasoning
+                elif chunk.choices[0].delta.content:
+                    if not cont_started:
+                        print("CONTENT:")
+                        cont_started=True
+                    print(chunk.choices[0].delta.content,end="",flush=True)
+                    content += chunk.choices[0].delta.content
+            return content.strip(),reasoning.strip()
+
+    def _retry_request(self, observation: str, retries: int = 5, delay: int = 5) -> Tuple[str, str]:
+        """
+        Attempt to make an API request with retries.
+
+        Args:
+            observation (str): The input to process.
+            retries (int): The number of attempts to try.
+            delay (int): Seconds to wait between attempts.
+
+        Raises:
+            Exception: The last exception caught if all retries fail.
+        """
+        last_exception = None
+        for attempt in range(1, retries + 1):
+            try:
+                response, reasoning = self._make_request(observation)
+                #if self.verbose:
+                #    print(f"\nObservation:\n {observation}\nReasoning:\n {reasoning} \nResponse:\n {response}")
+                return response, reasoning
+
+            except Exception as e:
+                if "rate limit" in str(e).lower():
+                    last_exception = e
+                    print(f"Attempt {attempt} RateLimitError detected, sleep 60s... {e}")
+                    time.sleep(60)
+                else:
+                    raise e
+
+            except Exception as e:
+                last_exception = e
+                print(f"Attempt {attempt} failed with error: {e}")
+                if attempt < retries:
+                    time.sleep(delay)
+        print(f"Attempted failed too many times.")
+
+    def __call__(self, observation: str) -> str:
+        """
+        Process the observation using the OpenRouter API and return the action.
+
+        Args:
+            observation (str): The input string to process.
+
+        Returns:
+            str: The generated response.
+        """
+        if not isinstance(observation, str):
+            raise ValueError(f"Observation must be a string. Received type: {type(observation)}")
+        action, _ = self._retry_request(observation)
+        return action
+    
+    def get_reasoning(self, observation: str) -> Tuple[str, str]:
+        """
+        Process the observation using the OpenRouter API and return both action and reasoning.
+
+        Args:
+            observation (str): The input string to process.
+
+        Returns:
+            Tuple[str, str]: (action, reasoning)
+        """
+        if not isinstance(observation, str):
+            raise ValueError(f"Observation must be a string. Received type: {type(observation)}")
+        return self._retry_request(observation)

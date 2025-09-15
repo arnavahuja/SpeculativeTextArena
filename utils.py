@@ -1,9 +1,10 @@
 import os
 import json
 import shutil
-import constants as Constants
 import re
 import chess
+from pathlib import Path
+
 class Utils:
 
     @staticmethod
@@ -70,12 +71,12 @@ class Utils:
                 else:
                     raise e
     
-    @staticmethod
-    def check_dir(dir_path):
-        for file_name in Constants.trajectory_filenames:
-            path = os.path.join(dir_path, file_name)
-            if not os.path.exists(path):
-                print(f"{dir_path} does not have {file_name} file")
+    # @staticmethod
+    # def check_dir(dir_path):
+    #     for file_name in Path(dir_path).glob("*"):
+    #         path = os.path.join(dir_path, file_name)
+    #         if not os.path.exists(path):
+    #             print(f"{dir_path} does not have {file_name} file")
     
     @staticmethod
     def check_all_dirs(base_path):
