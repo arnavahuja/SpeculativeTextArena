@@ -51,6 +51,11 @@ class Config:
             self.num_chess_players = config['game']['num_players']
             self.client_error_sleep_time = config['game']['error_sleep_time']
             self.server_error_sleep_time = config['game']['error_sleep_time']
+            self.stop_after = config['game']['stop_after']
+            self.agent_name0 = config['game']['agent_name0']
+            self.agent_name1 = config['game']['agent_name1']
+            self.guess_model_name = config['game']['guess_model_name']
+            self.num_guesses = config['game']['num_guesses']
             
         except Exception as e:
             print(f"Error loading YAML config: {e}")
@@ -620,10 +625,10 @@ def main():
     """Main execution function"""
     config_path = "./config.yml"
     config = Config(config_path)
-    agent_name0 = config.game.agent_name0
-    agent_name1 = config.game.agent_name1
-    guess_model_name = config.game.guess_model_name
-    num_guesses = config.game.num_guesses
+    agent_name0 = config.agent_name0
+    agent_name1 = config.agent_name1
+    guess_model_name = config.guess_model_name
+    num_guesses = config.num_guesses
     runner = SpeculativeChessRunner(
         agent0_name=agent_name0,
         agent1_name=agent_name1,
@@ -632,7 +637,7 @@ def main():
     )
     
     start_time = time.time()
-    runner.run(stop_after=40)
+    runner.run(stop_after=config.stop_after)
     end_time = time.time()
     
     print(f"Total execution time: {end_time - start_time:.2f} seconds")
